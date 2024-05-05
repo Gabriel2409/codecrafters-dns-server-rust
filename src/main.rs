@@ -1,4 +1,8 @@
 use std::net::UdpSocket;
+mod dns;
+mod error;
+
+pub use error::Result;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
