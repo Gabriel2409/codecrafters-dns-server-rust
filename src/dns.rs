@@ -1,6 +1,6 @@
 use crate::Result;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// Header section format
 /// https://datatracker.ietf.org/doc/html/rfc1035#section-4.1
 pub struct DnsHeader {
@@ -85,7 +85,7 @@ impl DnsHeader {
 
 // A four bit field that specifies kind of query in this message.
 // This value is set by the originator of a query and copied into the response.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum OpCode {
     /// 0: a standard query (QUERY)
     Query,
@@ -112,7 +112,7 @@ impl OpCode {
 }
 
 /// 4 bit field set as part of the responses
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RCode {
     /// 0: No error condition
     NoError,
@@ -144,5 +144,41 @@ impl RCode {
             _ => anyhow::bail!("RCODE should be 4 bits long"),
         };
         Ok(r_code)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dns_header_from_bytes() -> Result<()> {
+        let bytes = [
+            0b1011, 0b1101, 0b00001100, 0b10100000, 0b11, 0b10101010, 0b0, 0b11011, 0b1101, 0b111,
+            0b11111111, 0b11111111,
+        ];
+
+        let dns_header = DnsHeader::from_bytes(&bytes)?;
+
+        assert_eq!(
+            dns_header,
+            DnsHeader {
+                packet_id: 0b101100001101,
+                query_response_ind: false,
+                operation_code: OpCode::Iquery,
+                authoritative_answer: true,
+                truncation: false,
+                recursion_desired: false,
+                recursion_available: true,
+                reserved: 0b010,
+                response_code: RCode::NoError,
+                question_count: 0b1110101010,
+                answer_record_count: 0b11011,
+                authority_record_count: 0b110100000111,
+                additional_record_count: 0b1111111111111111,
+            }
+        );
+
+        Ok(())
     }
 }
