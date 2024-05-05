@@ -32,6 +32,57 @@ pub struct DnsHeader {
     pub additional_record_count: u16,
 }
 
+impl DnsHeader {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() != 12 {
+            anyhow::bail!("Dns header should be 12 bytes long");
+        }
+        let mut buf = [0u8; 2];
+        buf.copy_from_slice(&bytes[0..2]);
+        let packet_id = u16::from_be_bytes(buf);
+
+        let third_byte = bytes[2];
+        let query_response_ind = (third_byte >> 7) == 1;
+        let operation_code = OpCode::from_byte((third_byte & 0b0111_1000) >> 3)?;
+        let authoritative_answer = ((third_byte & 0b100) >> 2) == 1;
+        let truncation = ((third_byte & 0b10) >> 1) == 1;
+        let recursion_desired = (third_byte & 1) == 1;
+
+        let fourth_byte = bytes[3];
+        let recursion_available = (fourth_byte >> 7) == 1;
+        let reserved = (fourth_byte & 0b0111_0000) >> 4;
+        let response_code = RCode::from_byte(fourth_byte & 0b1111)?;
+
+        buf.copy_from_slice(&bytes[4..6]);
+        let question_count = u16::from_be_bytes(buf);
+
+        buf.copy_from_slice(&bytes[6..8]);
+        let answer_record_count = u16::from_be_bytes(buf);
+
+        buf.copy_from_slice(&bytes[8..10]);
+        let authority_record_count = u16::from_be_bytes(buf);
+
+        buf.copy_from_slice(&bytes[10..12]);
+        let additional_record_count = u16::from_be_bytes(buf);
+
+        Ok(DnsHeader {
+            packet_id,
+            query_response_ind,
+            operation_code,
+            authoritative_answer,
+            truncation,
+            recursion_desired,
+            recursion_available,
+            reserved,
+            response_code,
+            question_count,
+            answer_record_count,
+            authority_record_count,
+            additional_record_count,
+        })
+    }
+}
+
 // A four bit field that specifies kind of query in this message.
 // This value is set by the originator of a query and copied into the response.
 #[derive(Debug)]
