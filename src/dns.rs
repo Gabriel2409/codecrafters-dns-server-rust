@@ -81,6 +81,45 @@ impl DnsHeader {
             additional_record_count,
         })
     }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut header = Vec::new();
+        header.extend(self.packet_id.to_be_bytes());
+
+        let mut third_byte = 0;
+        if self.query_response_ind {
+            third_byte += 1 << 7;
+        }
+        let opcode_val = self.operation_code.to_u8();
+        third_byte += opcode_val << 3;
+        if self.authoritative_answer {
+            third_byte += 1 << 2;
+        }
+        if self.truncation {
+            third_byte += 1 << 1;
+        }
+        if self.recursion_desired {
+            third_byte += 1;
+        }
+
+        header.push(third_byte);
+
+        let mut fourth_byte = 0;
+        if self.recursion_available {
+            fourth_byte += 1 << 7;
+        }
+        fourth_byte += self.reserved << 4;
+        let rcode_val = self.response_code.to_u8();
+        fourth_byte += rcode_val;
+
+        header.push(fourth_byte);
+
+        header.extend(self.question_count.to_be_bytes());
+        header.extend(self.answer_record_count.to_be_bytes());
+        header.extend(self.authority_record_count.to_be_bytes());
+        header.extend(self.additional_record_count.to_be_bytes());
+
+        header
+    }
 }
 
 // A four bit field that specifies kind of query in this message.
@@ -108,6 +147,14 @@ impl OpCode {
             _ => anyhow::bail!("OPCODE should be 4 bits long"),
         };
         Ok(op_code)
+    }
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            Self::Query => 0,
+            Self::Iquery => 1,
+            Self::Status => 2,
+            Self::Reserved => 3,
+        }
     }
 }
 
@@ -145,6 +192,17 @@ impl RCode {
         };
         Ok(r_code)
     }
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            Self::NoError => 0,
+            Self::FormatError => 1,
+            Self::ServerFailure => 2,
+            Self::NameError => 3,
+            Self::NotImplemented => 4,
+            Self::Refused => 5,
+            Self::Reserved => 6,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -154,7 +212,7 @@ mod tests {
     #[test]
     fn test_dns_header_from_bytes() -> Result<()> {
         let bytes = [
-            0b1011, 0b1101, 0b00001100, 0b10100000, 0b11, 0b10101010, 0b0, 0b11011, 0b1101, 0b111,
+            0b1011, 0b1101, 0b00001100, 0b10100010, 0b11, 0b10101010, 0b0, 0b11011, 0b1101, 0b111,
             0b11111111, 0b11111111,
         ];
 
@@ -171,13 +229,14 @@ mod tests {
                 recursion_desired: false,
                 recursion_available: true,
                 reserved: 0b010,
-                response_code: RCode::NoError,
+                response_code: RCode::ServerFailure,
                 question_count: 0b1110101010,
                 answer_record_count: 0b11011,
                 authority_record_count: 0b110100000111,
                 additional_record_count: 0b1111111111111111,
             }
         );
+        assert_eq!(dns_header.to_bytes(), bytes);
 
         Ok(())
     }
