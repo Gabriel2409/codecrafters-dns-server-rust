@@ -56,16 +56,16 @@ impl TryFrom<&[u8]> for DnsHeader {
     }
 }
 
-impl Into<[u8; 12]> for DnsHeader {
-    fn into(self) -> [u8; 12] {
+impl From<DnsHeader> for [u8; 12] {
+    fn from(dns_header: DnsHeader) -> Self {
         let mut buf = [0u8; 12];
-        buf[0..2].copy_from_slice(&self.packet_id.to_be_bytes());
-        buf[2] = self.third_byte.into();
-        buf[3] = self.fourth_byte.into();
-        buf[4..6].copy_from_slice(&self.question_count.to_be_bytes());
-        buf[6..8].copy_from_slice(&self.answer_record_count.to_be_bytes());
-        buf[8..10].copy_from_slice(&self.authority_record_count.to_be_bytes());
-        buf[10..12].copy_from_slice(&self.additional_record_count.to_be_bytes());
+        buf[0..2].copy_from_slice(&dns_header.packet_id.to_be_bytes());
+        buf[2] = dns_header.third_byte.into();
+        buf[3] = dns_header.fourth_byte.into();
+        buf[4..6].copy_from_slice(&dns_header.question_count.to_be_bytes());
+        buf[6..8].copy_from_slice(&dns_header.answer_record_count.to_be_bytes());
+        buf[8..10].copy_from_slice(&dns_header.authority_record_count.to_be_bytes());
+        buf[10..12].copy_from_slice(&dns_header.additional_record_count.to_be_bytes());
         buf
     }
 }
