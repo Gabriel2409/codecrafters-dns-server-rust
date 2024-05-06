@@ -33,6 +33,7 @@ pub struct DnsHeader {
 }
 
 impl DnsHeader {
+    /// Converts bytes into a dns_header
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 12 {
             anyhow::bail!("Dns header should be 12 bytes long");
@@ -81,6 +82,7 @@ impl DnsHeader {
             additional_record_count,
         })
     }
+    /// Converts a dns_header back into bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut header = Vec::new();
         header.extend(self.packet_id.to_be_bytes());
