@@ -1,10 +1,12 @@
 use std::net::UdpSocket;
-mod dns;
+mod dns_header;
+mod dns_question;
 mod error;
 
 pub use error::{Error, Result};
 
-use crate::dns::{DnsHeader, DnsHeaderFourthByte, DnsHeaderThirdByte, OpCode, RCode};
+use dns_header::{DnsHeader, DnsHeaderFourthByte, DnsHeaderThirdByte, OpCode, RCode};
+use dns_question::{DnsLabel, DnsQuestion, QClass, QType};
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -39,14 +41,35 @@ fn main() {
                         reserved: 0,
                         response_code: RCode::NoError,
                     },
-                    question_count: 0,
+                    question_count: 1,
                     answer_record_count: 0,
                     authority_record_count: 0,
                     additional_record_count: 0,
                 };
 
-                let response: [u8; 12] = dns_header.into();
-                // let response = [];
+                let dns_question = DnsQuestion {
+                    q_name: {
+                        vec![
+                            DnsLabel {
+                                length: 12,
+                                label: "codecrafters".to_string(),
+                            },
+                            DnsLabel {
+                                length: 2,
+                                label: "io".to_string(),
+                            },
+                        ]
+                    },
+                    q_type: QType::A,
+                    q_class: QClass::In,
+                };
+
+                let mut response = Vec::new();
+                let header_bytes: [u8; 12] = dns_header.into();
+                response.extend(header_bytes);
+
+                let question_bytes: Vec<u8> = dns_question.into();
+                response.extend(question_bytes);
                 udp_socket
                     .send_to(&response, source)
                     .expect("Failed to send response");
