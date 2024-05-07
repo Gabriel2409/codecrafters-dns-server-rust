@@ -1,17 +1,22 @@
-use std::io::BufRead;
+use std::io::{BufRead, Read};
 
-pub use crate::{Error, Result};
+use crate::dns_class::QClass;
+use crate::dns_label::DnsLabel;
+use crate::dns_type::QType;
 
+use crate::{Error, Result};
+
+#[derive(Debug, PartialEq)]
 pub struct DnsQuestion {
     pub q_name: Vec<DnsLabel>,
     pub q_type: QType,
     pub q_class: QClass,
 }
 
-impl TryFrom<&mut dyn BufRead> for DnsQuestion {
+impl TryFrom<&mut dyn Read> for DnsQuestion {
     type Error = Error;
 
-    fn try_from(reader: &mut dyn BufRead) -> Result<Self> {
+    fn try_from(reader: &mut dyn Read) -> Result<Self> {
         let mut one_byte_buf = [0u8; 1];
         let mut q_name = Vec::new();
         loop {
@@ -61,150 +66,55 @@ impl From<DnsQuestion> for Vec<u8> {
     }
 }
 
-pub struct DnsLabel {
-    pub length: u8,
-    pub label: String,
-}
+#[cfg(test)]
+mod tests {
+    use std::io::{BufReader, Cursor};
 
-/// https://www.rfc-editor.org/rfc/rfc1035#section-3.2.2
-pub enum QType {
-    /// 1 a host address
-    A,
-    /// 2 an authoritative name server
-    Ns,
-    /// 3 a mail destination (obsolete - use mx)
-    Md,
-    /// 4 a mail forwarder (obsolete - use mx)
-    Mf,
-    /// 5 the canonical name for an alias
-    Cname,
-    /// 6 marks the start of a zone of authority
-    Soa,
-    /// 7 a mailbox domain name (experimental)
-    Mb,
-    /// 8 a mail group member (experimental)
-    Mg,
-    /// 9 a mail rename domain name (experimental)
-    Mr,
-    /// 10 a null rr (experimental)
-    Null,
-    /// 11 a well known service description
-    Wks,
-    /// 12 a domain name pointer
-    Ptr,
-    /// 13 host information
-    Hinfo,
-    /// 14 mailbox or mail list information
-    Minfo,
-    /// 15 mail exchange
-    Mx,
-    /// 16 text strings
-    Txt,
-    /// 252 A request for a transfer of an entire zone
-    Axfr,
-    /// 253 A request for mailbox-related records (MB, MG or MR)
-    Mailb,
-    /// 254 A request for mail agent RRs (Obsolete - see MX)
-    Maila,
-    /// 255 A request for all records,
-    StarSign,
-}
+    use super::*;
 
-impl TryFrom<u16> for QType {
-    type Error = Error;
+    #[test]
+    fn test_dns_question_from_bytes() -> Result<()> {
+        let domain_name = "query.example.com";
 
-    fn try_from(value: u16) -> Result<Self> {
-        let q_type = match value {
-            1 => Self::A,
-            2 => Self::Ns,
-            3 => Self::Md,
-            4 => Self::Mf,
-            5 => Self::Cname,
-            6 => Self::Soa,
-            7 => Self::Mb,
-            8 => Self::Mg,
-            9 => Self::Mr,
-            10 => Self::Null,
-            11 => Self::Wks,
-            12 => Self::Ptr,
-            13 => Self::Hinfo,
-            14 => Self::Minfo,
-            15 => Self::Mx,
-            16 => Self::Txt,
-            252 => Self::Axfr,
-            253 => Self::Mailb,
-            254 => Self::Maila,
-            255 => Self::StarSign,
-            _ => anyhow::bail!("Invalid QType"),
-        };
-        Ok(q_type)
-    }
-}
-
-impl From<QType> for u16 {
-    fn from(val: QType) -> Self {
-        match val {
-            QType::A => 1,
-            QType::Ns => 2,
-            QType::Md => 3,
-            QType::Mf => 4,
-            QType::Cname => 5,
-            QType::Soa => 6,
-            QType::Mb => 7,
-            QType::Mg => 8,
-            QType::Mr => 9,
-            QType::Null => 10,
-            QType::Wks => 11,
-            QType::Ptr => 12,
-            QType::Hinfo => 13,
-            QType::Minfo => 14,
-            QType::Mx => 15,
-            QType::Txt => 16,
-            QType::Axfr => 252,
-            QType::Mailb => 253,
-            QType::Maila => 254,
-            QType::StarSign => 255,
+        let mut bytes = Vec::new();
+        for s in domain_name.split(|x| x == '.') {
+            bytes.push(s.len() as u8);
+            bytes.extend(s.as_bytes());
         }
-    }
-}
+        bytes.push(0);
 
-pub enum QClass {
-    /// 1 the Internet
-    In,
-    ///2 the CSNET class (Obsolete - used only for examples in some obsolete RFCs)
-    Cs,
-    ///3 the CHAOS class
-    Ch,
-    ///4 Hesiod [Dyer 87]
-    Hs,
-    /// 255 any class
-    StarSign,
-}
+        bytes.extend([0b0, 0b00000111]);
+        bytes.extend([0b0, 0b00000100]);
 
-impl TryFrom<u16> for QClass {
-    type Error = Error;
+        let mut reader = Cursor::new(&bytes[..]);
+        let reader_ref: &mut dyn Read = &mut reader;
 
-    fn try_from(value: u16) -> Result<Self> {
-        let q_class = match value {
-            1 => Self::In,
-            2 => Self::Cs,
-            3 => Self::Ch,
-            4 => Self::Hs,
-            255 => Self::StarSign,
-            _ => anyhow::bail!("Invalid QClass"),
-        };
-        Ok(q_class)
-    }
-}
+        let dns_question: DnsQuestion = DnsQuestion::try_from(reader_ref)?;
 
-impl From<QClass> for u16 {
-    fn from(val: QClass) -> Self {
-        match val {
-            QClass::In => 1,
-            QClass::Cs => 2,
-            QClass::Ch => 3,
-            QClass::Hs => 4,
-            QClass::StarSign => 255,
-        }
+        assert_eq!(
+            dns_question,
+            DnsQuestion {
+                q_name: vec![
+                    DnsLabel {
+                        length: 5,
+                        label: "query".to_string()
+                    },
+                    DnsLabel {
+                        length: 7,
+                        label: "example".to_string()
+                    },
+                    DnsLabel {
+                        length: 3,
+                        label: "com".to_string()
+                    }
+                ],
+                q_type: QType::Mb,
+                q_class: QClass::Hs
+            }
+        );
+        let reconstructed_bytes: Vec<u8> = dns_question.into();
+        assert_eq!(reconstructed_bytes, bytes);
+
+        Ok(())
     }
 }

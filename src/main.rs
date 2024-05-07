@@ -1,12 +1,18 @@
 use std::net::UdpSocket;
+mod dns_class;
 mod dns_header;
+mod dns_label;
 mod dns_question;
+mod dns_type;
 mod error;
 
 pub use error::{Error, Result};
 
+use dns_class::QClass;
 use dns_header::{DnsHeader, DnsHeaderFourthByte, DnsHeaderThirdByte, OpCode, RCode};
-use dns_question::{DnsLabel, DnsQuestion, QClass, QType};
+use dns_label::DnsLabel;
+use dns_question::DnsQuestion;
+use dns_type::QType;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
