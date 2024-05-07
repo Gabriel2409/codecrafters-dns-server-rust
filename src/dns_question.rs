@@ -1,4 +1,4 @@
-use std::io::{BufRead, Read};
+use std::io::Read;
 
 use crate::dns_class::QClass;
 use crate::dns_label::DnsLabel;

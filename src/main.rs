@@ -1,4 +1,5 @@
 use std::net::UdpSocket;
+mod dns_answer;
 mod dns_class;
 mod dns_header;
 mod dns_label;
@@ -8,6 +9,7 @@ mod error;
 
 pub use error::{Error, Result};
 
+use dns_answer::DnsAnswer;
 use dns_class::QClass;
 use dns_header::{DnsHeader, DnsHeaderFourthByte, DnsHeaderThirdByte, OpCode, RCode};
 use dns_label::DnsLabel;
@@ -48,7 +50,7 @@ fn main() {
                         response_code: RCode::NoError,
                     },
                     question_count: 1,
-                    answer_record_count: 0,
+                    answer_record_count: 1,
                     authority_record_count: 0,
                     additional_record_count: 0,
                 };
@@ -70,12 +72,36 @@ fn main() {
                     q_class: QClass::In,
                 };
 
+                let dns_answer = DnsAnswer {
+                    r_name: {
+                        vec![
+                            DnsLabel {
+                                length: 12,
+                                label: "codecrafters".to_string(),
+                            },
+                            DnsLabel {
+                                length: 2,
+                                label: "io".to_string(),
+                            },
+                        ]
+                    },
+                    r_type: QType::A,
+                    r_class: QClass::In,
+                    ttl: 60,
+                    rd_length: 4,
+                    r_data: vec![78, 45, 89, 26],
+                };
+
                 let mut response = Vec::new();
                 let header_bytes: [u8; 12] = dns_header.into();
                 response.extend(header_bytes);
 
                 let question_bytes: Vec<u8> = dns_question.into();
                 response.extend(question_bytes);
+
+                let answer_bytes: Vec<u8> = dns_answer.into();
+                response.extend(answer_bytes);
+
                 udp_socket
                     .send_to(&response, source)
                     .expect("Failed to send response");
