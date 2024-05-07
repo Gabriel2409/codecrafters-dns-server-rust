@@ -35,7 +35,7 @@ fn main() {
                 pack_id_buf.copy_from_slice(&buf[0..2]);
                 let packet_id = u16::from_be_bytes(pack_id_buf);
 
-                let packet_third_byte = DnsHeaderThirdByte::from(buf[3]);
+                let packet_third_byte = DnsHeaderThirdByte::from(buf[2]);
 
                 // only mimics operation_code and recursion_desired field from the request
                 let res_third_byte = DnsHeaderThirdByte {
