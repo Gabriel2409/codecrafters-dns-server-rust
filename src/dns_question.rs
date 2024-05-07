@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use crate::dns_class::QClass;
 use crate::dns_label::DnsLabel;
@@ -13,10 +13,8 @@ pub struct DnsQuestion {
     pub q_class: QClass,
 }
 
-impl TryFrom<&mut dyn Read> for DnsQuestion {
-    type Error = Error;
-
-    fn try_from(reader: &mut dyn Read) -> Result<Self> {
+impl DnsQuestion {
+    fn get_q_name(reader: &mut Cursor<&[u8]>) -> Result<Vec<DnsLabel>> {
         let mut one_byte_buf = [0u8; 1];
         let mut q_name = Vec::new();
         loop {
@@ -26,12 +24,38 @@ impl TryFrom<&mut dyn Read> for DnsQuestion {
             if length == 0 {
                 break;
             }
+            // if bit 1 or 2 is set, that means we are on a pointer
+            // in fact 10 and 01 are reserved for future use but we don't make the
+            // distinction
+            else if (length >> 6) > 0 {
+                let big_end = (length & 0b00111111) as u64;
+                reader.read_exact(&mut one_byte_buf)?;
+                let small_end = one_byte_buf[0] as u64;
+
+                let offset: u64 = (big_end << 8) + small_end;
+                let current_pos = reader.stream_position()?;
+                reader.seek(SeekFrom::Start(offset))?;
+                let prev_labels = Self::get_q_name(reader)?;
+                q_name.extend(prev_labels);
+                reader.seek(SeekFrom::Start(current_pos))?;
+                break;
+            }
+
             let mut content_buf = vec![0u8; length as usize];
             reader.read_exact(&mut content_buf)?;
 
             let label = String::from_utf8(content_buf)?;
             q_name.push(DnsLabel { length, label });
         }
+        Ok(q_name)
+    }
+}
+impl TryFrom<&mut Cursor<&[u8]>> for DnsQuestion {
+    type Error = Error;
+
+    fn try_from(reader: &mut Cursor<&[u8]>) -> Result<Self> {
+        let q_name = Self::get_q_name(reader)?;
+
         let mut two_byte_buf = [0u8; 2];
         reader.read_exact(&mut two_byte_buf)?;
         let q_type_val = u16::from_be_bytes(two_byte_buf);
@@ -87,9 +111,8 @@ mod tests {
         bytes.extend([0b0, 0b00000100]);
 
         let mut reader = Cursor::new(&bytes[..]);
-        let reader_ref: &mut dyn Read = &mut reader;
 
-        let dns_question: DnsQuestion = DnsQuestion::try_from(reader_ref)?;
+        let dns_question: DnsQuestion = DnsQuestion::try_from(&mut reader)?;
 
         assert_eq!(
             dns_question,
