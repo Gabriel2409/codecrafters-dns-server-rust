@@ -2,6 +2,7 @@ use std::io::Read;
 
 use crate::dns_class::QClass;
 use crate::dns_label::DnsLabel;
+use crate::dns_question::DnsQuestion;
 use crate::dns_type::QType;
 
 use crate::{Error, Result};
@@ -69,6 +70,20 @@ impl TryFrom<&mut dyn Read> for DnsAnswer {
             rd_length,
             r_data,
         })
+    }
+}
+
+impl From<DnsQuestion> for DnsAnswer {
+    /// TODO: handle q_types and q_class not in type and class
+    fn from(question: DnsQuestion) -> Self {
+        DnsAnswer {
+            r_name: question.q_name,
+            r_type: question.q_type,
+            r_class: question.q_class,
+            ttl: 0,
+            rd_length: 0,
+            r_data: vec![],
+        }
     }
 }
 

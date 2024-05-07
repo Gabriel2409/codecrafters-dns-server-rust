@@ -1,4 +1,7 @@
-use std::net::UdpSocket;
+use std::{
+    io::{Cursor, Read},
+    net::UdpSocket,
+};
 mod dns_answer;
 mod dns_class;
 mod dns_header;
@@ -31,76 +34,41 @@ fn main() {
                 // get filled buffer with &mut buf[..size];
                 println!("Received {} bytes from {}", size, source);
 
-                let mut pack_id_buf = [0u8; 2];
-                pack_id_buf.copy_from_slice(&buf[0..2]);
-                let packet_id = u16::from_be_bytes(pack_id_buf);
+                // contains the header of the request
+                let mut dns_header = DnsHeader::try_from(&buf[..12])
+                    .expect("unable to construct header from packet");
 
-                let packet_third_byte = DnsHeaderThirdByte::from(buf[2]);
+                // modifies certain fields for the response
+                dns_header.third_byte.query_response_ind = true;
+                dns_header.third_byte.authoritative_answer = false;
+                dns_header.third_byte.truncation = false;
 
-                // only mimics operation_code and recursion_desired field from the request
-                let res_third_byte = DnsHeaderThirdByte {
-                    query_response_ind: true,
-                    operation_code: packet_third_byte.operation_code,
-                    authoritative_answer: false,
-                    truncation: false,
-                    recursion_desired: packet_third_byte.recursion_desired,
-                };
-
-                let r_code = match res_third_byte.operation_code {
+                let response_code = match dns_header.third_byte.operation_code {
                     OpCode::Query => RCode::NoError,
                     _ => RCode::NotImplemented,
                 };
 
-                let dns_header = DnsHeader {
-                    packet_id,
-                    third_byte: res_third_byte,
-                    fourth_byte: DnsHeaderFourthByte {
-                        recursion_available: false,
-                        reserved: 0,
-                        response_code: r_code,
-                    },
-                    question_count: 1,
-                    answer_record_count: 1,
-                    authority_record_count: 0,
-                    additional_record_count: 0,
-                };
+                dns_header.fourth_byte.recursion_available = false;
+                dns_header.fourth_byte.reserved = 0;
+                dns_header.fourth_byte.response_code = response_code;
 
-                let dns_question = DnsQuestion {
-                    q_name: {
-                        vec![
-                            DnsLabel {
-                                length: 12,
-                                label: "codecrafters".to_string(),
-                            },
-                            DnsLabel {
-                                length: 2,
-                                label: "io".to_string(),
-                            },
-                        ]
-                    },
-                    q_type: QType::A,
-                    q_class: QClass::In,
-                };
+                dns_header.question_count = 1;
+                dns_header.answer_record_count = 1;
+                dns_header.authority_record_count = 0;
+                dns_header.additional_record_count = 0;
 
-                let dns_answer = DnsAnswer {
-                    r_name: {
-                        vec![
-                            DnsLabel {
-                                length: 12,
-                                label: "codecrafters".to_string(),
-                            },
-                            DnsLabel {
-                                length: 2,
-                                label: "io".to_string(),
-                            },
-                        ]
-                    },
-                    r_type: QType::A,
-                    r_class: QClass::In,
-                    ttl: 60,
-                    rd_length: 4,
-                    r_data: vec![78, 45, 89, 26],
-                };
+                let mut reader = Cursor::new(&buf[12..]);
+                let reader_ref: &mut dyn Read = &mut reader;
+                let mut dns_question =
+                    DnsQuestion::try_from(reader_ref).expect("unable to construct question");
+
+                dns_question.q_type = QType::A;
+                dns_question.q_class = QClass::In;
+
+                let mut dns_answer = DnsAnswer::from(dns_question.clone());
+                dns_answer.ttl = 60;
+                dns_answer.rd_length = 4;
+                dns_answer.r_data = vec![45, 87, 98, 65];
 
                 let mut response = Vec::new();
                 let header_bytes: [u8; 12] = dns_header.into();

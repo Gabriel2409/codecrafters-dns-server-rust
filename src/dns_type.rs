@@ -3,7 +3,7 @@
 /// queries and answers even though some of the values are specific to questions
 use crate::{Error, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum QType {
     /// 1 a host address
     A,

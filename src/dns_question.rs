@@ -6,7 +6,7 @@ use crate::dns_type::QType;
 
 use crate::{Error, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DnsQuestion {
     pub q_name: Vec<DnsLabel>,
     pub q_type: QType,
