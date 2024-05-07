@@ -35,19 +35,29 @@ fn main() {
                 pack_id_buf.copy_from_slice(&buf[0..2]);
                 let packet_id = u16::from_be_bytes(pack_id_buf);
 
+                let packet_third_byte = DnsHeaderThirdByte::from(buf[3]);
+
+                // only mimics operation_code and recursion_desired field from the request
+                let res_third_byte = DnsHeaderThirdByte {
+                    query_response_ind: true,
+                    operation_code: packet_third_byte.operation_code,
+                    authoritative_answer: false,
+                    truncation: false,
+                    recursion_desired: packet_third_byte.recursion_desired,
+                };
+
+                let r_code = match res_third_byte.operation_code {
+                    OpCode::Query => RCode::NoError,
+                    _ => RCode::NotImplemented,
+                };
+
                 let dns_header = DnsHeader {
                     packet_id,
-                    third_byte: DnsHeaderThirdByte {
-                        query_response_ind: true,
-                        operation_code: OpCode::Query,
-                        authoritative_answer: false,
-                        truncation: false,
-                        recursion_desired: false,
-                    },
+                    third_byte: res_third_byte,
                     fourth_byte: DnsHeaderFourthByte {
                         recursion_available: false,
                         reserved: 0,
-                        response_code: RCode::NoError,
+                        response_code: r_code,
                     },
                     question_count: 1,
                     answer_record_count: 1,
