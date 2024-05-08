@@ -10,6 +10,22 @@ pub struct DnsRequest {
     pub questions: Vec<DnsQuestion>,
 }
 
+impl DnsRequest {
+    pub fn split_questions(self) -> Vec<Self> {
+        let mut dns_requests = Vec::new();
+        for question in self.questions {
+            let mut header = self.header.clone();
+            header.question_count = 1;
+
+            dns_requests.push(Self {
+                header,
+                questions: vec![question],
+            });
+        }
+        dns_requests
+    }
+}
+
 impl TryFrom<&[u8]> for DnsRequest {
     type Error = Error;
 
@@ -47,12 +63,68 @@ impl From<DnsRequest> for Vec<u8> {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct DnsReply {
     pub header: DnsHeader,
     pub questions: Vec<DnsQuestion>,
     pub answers: Vec<DnsAnswer>,
 }
 
+impl DnsReply {
+    /// Hypothesis 1 answer per question,
+    /// no error handling
+    pub fn merge_replies(replies: &[Self]) -> Self {
+        let mut header = replies[0].header.clone();
+        header.question_count = replies.len() as u16;
+        header.answer_record_count = replies.len() as u16;
+        let mut questions = Vec::new();
+        let mut answers = Vec::new();
+        for dns_reply in replies {
+            questions.extend(dns_reply.questions.clone());
+            answers.extend(dns_reply.answers.clone());
+        }
+        Self {
+            header,
+            questions,
+            answers,
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for DnsReply {
+    type Error = Error;
+
+    fn try_from(buf: &[u8]) -> Result<Self> {
+        let mut reader = Cursor::new(&buf[..]);
+        let mut header_buf = [0u8; 12];
+        reader
+            .read_exact(&mut header_buf)
+            .expect("Could not fill header");
+
+        // contains the header of the reply
+        let header = DnsHeader::try_from(&header_buf[..])?;
+
+        if !header.third_byte.query_response_ind {
+            anyhow::bail!("Header corresponds to a request packet");
+        }
+
+        let mut questions = Vec::new();
+        for _ in 0..header.question_count {
+            let dns_question = DnsQuestion::try_from(&mut reader)?;
+            questions.push(dns_question);
+        }
+        let mut answers = Vec::new();
+        for _ in 0..header.answer_record_count {
+            let dns_answer = DnsAnswer::try_from(&mut reader)?;
+            answers.push(dns_answer);
+        }
+        Ok(Self {
+            header,
+            questions,
+            answers,
+        })
+    }
+}
 impl TryFrom<DnsRequest> for DnsReply {
     type Error = Error;
 

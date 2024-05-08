@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Cursor, Read};
 
 use crate::dns_class::QClass;
 use crate::dns_label::DnsLabel;
@@ -7,7 +7,7 @@ use crate::dns_type::QType;
 
 use crate::{Error, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DnsAnswer {
     pub r_name: Vec<DnsLabel>,
     /// In reality, only a subset of QType
@@ -22,10 +22,10 @@ pub struct DnsAnswer {
     pub r_data: Vec<u8>,
 }
 
-impl TryFrom<&mut dyn Read> for DnsAnswer {
+impl TryFrom<&mut Cursor<&[u8]>> for DnsAnswer {
     type Error = Error;
 
-    fn try_from(reader: &mut dyn Read) -> Result<Self> {
+    fn try_from(reader: &mut Cursor<&[u8]>) -> Result<Self> {
         let mut one_byte_buf = [0u8; 1];
         let mut r_name = Vec::new();
         loop {
@@ -134,9 +134,8 @@ mod tests {
         bytes.extend([7, 45, 32, 56]);
 
         let mut reader = Cursor::new(&bytes[..]);
-        let reader_ref: &mut dyn Read = &mut reader;
 
-        let dns_answer: DnsAnswer = DnsAnswer::try_from(reader_ref)?;
+        let dns_answer: DnsAnswer = DnsAnswer::try_from(&mut reader)?;
 
         assert_eq!(
             dns_answer,

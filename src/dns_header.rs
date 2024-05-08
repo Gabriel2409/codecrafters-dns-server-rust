@@ -1,6 +1,6 @@
 use crate::{Error, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// Header section format
 /// https://datatracker.ietf.org/doc/html/rfc1035#section-4.1
 pub struct DnsHeader {
@@ -70,7 +70,7 @@ impl From<DnsHeader> for [u8; 12] {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DnsHeaderThirdByte {
     pub query_response_ind: bool,
     /// (OPCODE) Specifies the kind of query in a message (4bits)
@@ -139,7 +139,7 @@ impl From<DnsHeaderThirdByte> for u8 {
 
 // A four bit field that specifies kind of query in this message.
 // This value is set by the originator of a query and copied into the response.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum OpCode {
     /// 0: a standard query (QUERY)
     Query,
@@ -151,7 +151,7 @@ pub enum OpCode {
     Reserved,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DnsHeaderFourthByte {
     /// (RA) Server sets this to 1 to indicate that recursion is available.
     pub recursion_available: bool,
@@ -207,7 +207,7 @@ impl From<DnsHeaderFourthByte> for u8 {
 }
 
 /// 4 bit field set as part of the responses
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum RCode {
     /// 0: No error condition
     NoError,
