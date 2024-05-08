@@ -14,6 +14,7 @@ pub struct DnsQuestion {
 }
 
 impl DnsQuestion {
+    /// TODO: better tests to make sure that compression works
     fn get_q_name(reader: &mut Cursor<&[u8]>) -> Result<Vec<DnsLabel>> {
         let mut one_byte_buf = [0u8; 1];
         let mut q_name = Vec::new();
