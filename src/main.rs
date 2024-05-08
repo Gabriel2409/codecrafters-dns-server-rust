@@ -16,7 +16,6 @@ fn main() -> Result<()> {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
     let mut should_forward = false;
-    let mut server_to_forward_to: String = String::from("");
     let args: Vec<String> = std::env::args().collect();
 
     // Uncomment this block to pass the first stage
@@ -27,7 +26,7 @@ fn main() -> Result<()> {
 
     if args.len() == 3 && args[1] == "--resolver".to_string() {
         should_forward = true;
-        server_to_forward_to = args[2].to_string();
+        let server_to_forward_to = args[2].to_string();
         let server = server_to_forward_to.parse::<SocketAddr>()?;
         udp_socket_forwarder.connect(server)?;
     }
@@ -61,9 +60,6 @@ fn main() -> Result<()> {
                             let reply = DnsReply::try_from(&final_buf[..])?;
 
                             dns_replies.push(reply);
-
-                            // get bytes
-                            // create dns_answer
                         }
                         let final_reply = DnsReply::merge_replies(&dns_replies);
                         dbg!(&final_reply);

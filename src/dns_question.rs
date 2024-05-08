@@ -93,7 +93,7 @@ impl From<DnsQuestion> for Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{BufReader, Cursor};
+    use std::io::Cursor;
 
     use super::*;
 

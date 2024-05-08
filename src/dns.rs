@@ -11,6 +11,8 @@ pub struct DnsRequest {
 }
 
 impl DnsRequest {
+    /// NOTE: all questions will have same packet id,
+    /// not really tested
     pub fn split_questions(self) -> Vec<Self> {
         let mut dns_requests = Vec::new();
         for question in self.questions {
@@ -73,6 +75,7 @@ pub struct DnsReply {
 impl DnsReply {
     /// Hypothesis 1 answer per question,
     /// no error handling
+    /// TODO: tests
     pub fn merge_replies(replies: &[Self]) -> Self {
         let mut header = replies[0].header.clone();
         header.question_count = replies.len() as u16;
